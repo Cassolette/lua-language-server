@@ -15,6 +15,10 @@ local sformat  = string.format
 local sgsub    = string.gsub
 local smatch   = string.match
 local sfind    = string.find
+local tconcat  = table.concat
+local print = print
+local string =string
+local pairs=pairs
 
 _ENV = nil
 
@@ -140,11 +144,7 @@ local function getMethodNode(source)
     end
 end
 
-local function getFieldEventName(field)
-    if field._eventName then
-        return field._eventName or nil
-    end
-    field._eventName = false
+local function getFieldArgs(field)
     local fieldType = field.extends
     if not fieldType then
         return nil
@@ -153,19 +153,29 @@ local function getFieldEventName(field)
     if not docFunc or docFunc.type ~= 'doc.type.function' then
         return nil
     end
-    local firstArg = docFunc.args and docFunc.args[1]
+    return docFunc.args
+end
+
+local function getFieldEventName(field)
+    if field._eventName then
+        return field._eventName or nil
+    end
+    field._eventName = false
+
+    local args = getFieldArgs(field)
+    local firstArg = args and args[1]
     if not firstArg then
         return nil
     end
     local secondArg
     if firstArg.name[1] == 'self' then
-        firstArg = docFunc.args[2]
+        firstArg = args[2]
         if not firstArg then
             return nil
         end
-        secondArg = docFunc.args[3]
+        secondArg = args[3]
     else
-        secondArg = docFunc.args[2]
+        secondArg = args[2]
     end
     if not secondArg then
         return
@@ -878,12 +888,37 @@ local function compileCallParam(noders, call, sourceID)
         fixIndex = fixIndex + 1
         methodIndex = 1
     end
-    local eventNodeID
+    local dumptbl
+    dumptbl = function(tbl, indent, cb)
+        if not indent then indent = 0 end
+        if not cb then cb = print end
+        if indent > 2 then
+            cb(string.rep("  ", indent) .. "...")
+            return
+        end
+        for k, v in pairs(tbl) do
+            local formatting = string.rep("  ", indent) .. k .. ": "
+            if type(v) == "table" then
+                cb(formatting)
+                dumptbl(v, indent+1, cb)
+            elseif type(v) == 'boolean' then
+                cb(formatting .. tostring(v))
+            elseif type(v) == "function" then
+                cb(formatting .. "()")
+            else
+                cb(formatting .. v)
+            end
+        end
+    end
+    local eventNodeID = {}
     for firstIndex, callArg in ipairs(call.args) do
         firstIndex = firstIndex - fixIndex
-        if firstIndex == 1 and callArg.type == 'string' then
+        --print("umm", firstIndex)
+        --dumptbl(callArg)
+        if callArg.type == 'string' then
+            --dumptbl(callArg, 0, log.debug)
             if callArg[1] then
-                eventNodeID = sformat('%s%s%s'
+                eventNodeID[#eventNodeID+1] = sformat('%s%s%s'
                     , nodeID
                     , EVENT_ENUM
                     , callArg[1]
@@ -901,9 +936,9 @@ local function compileCallParam(noders, call, sourceID)
                         , secondIndex
                     )
                     pushForward(noders, getID(funcParam), paramID)
-                    if eventNodeID then
+                    if #eventNodeID > 0 then
                         local eventParamID = sformat('%s%s%s%s%s'
-                            , eventNodeID
+                            , tconcat(eventNodeID, SPLIT_CHAR .. "`")
                             , PARAM_INDEX
                             , firstIndex + methodIndex
                             , PARAM_INDEX
@@ -1685,6 +1720,7 @@ function m.eachID(noders)
     return next, noders.source
 end
 
+m.getFieldArgs = getFieldArgs
 m.getFieldEventName = getFieldEventName
 
 ---获取对象的noders
