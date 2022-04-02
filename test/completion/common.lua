@@ -2645,6 +2645,17 @@ TEST [[
 --- @field on fun(eventName: '"won"', cb: fun(s: string))
 local emit = {}
 
+emit.on('<??>')
+]]
+(EXISTS)
+
+TEST [[
+--- @class Emit
+--- @field on fun(self: Emit, eventName: string, cb: function)
+--- @field on fun(self: Emit, eventName: '"died"', cb: fun(i: integer))
+--- @field on fun(self: Emit, eventName: '"won"', cb: fun(s: string))
+local emit = {}
+
 emit:on('<??>')
 ]]
 (EXISTS)
@@ -2654,6 +2665,22 @@ TEST [[
 --- @field on fun(eventName: string, cb: function)
 --- @field on fun(eventName: '"died"', cb: fun(i: integer))
 --- @field on fun(eventName: '"won"', cb: fun(s: string))
+local emit = {}
+
+emit.on('died', <??>)
+]]
+{
+    [1] = {
+        label    = 'fun(i: integer)',
+        kind     = define.CompletionItemKind.Function,
+    }
+}
+
+TEST [[
+--- @class Emit
+--- @field on fun(self: Emit, eventName: string, cb: function)
+--- @field on fun(self: Emit, eventName: '"died"', cb: fun(i: integer))
+--- @field on fun(self: Emit, eventName: '"won"', cb: fun(s: string))
 local emit = {}
 
 emit:on('won', <??>)
